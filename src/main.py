@@ -60,6 +60,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--eye_center_z_offset",
+        type=float,
+        default=0.03,
+        help="眼球中心Z轴向后偏移量（归一化坐标），默认0.03"
+    )
+
+    parser.add_argument(
         "--viz_level",
         type=int,
         choices=[1, 2, 3],
@@ -96,6 +103,7 @@ def main():
     if output_video:
         print(f"输出视频: {output_video}")
     print(f"角度限制: max_yaw={args.max_yaw}°, max_pitch={args.max_pitch}°")
+    print(f"眼球中心Z偏移: {args.eye_center_z_offset}")
     print(f"可视化级别: {args.viz_level}")
     print("=" * 50)
 
@@ -106,7 +114,8 @@ def main():
     # 创建处理器
     gaze_estimator = GazeEstimator(
         max_yaw=args.max_yaw,
-        max_pitch=args.max_pitch
+        max_pitch=args.max_pitch,
+        eye_center_z_offset=args.eye_center_z_offset
     )
     processor = VideoProcessor(gaze_estimator, viz_level=args.viz_level)
 

@@ -114,9 +114,9 @@ class GazeDrawer:
         if self.draw_gaze_arrow:
             self._draw_gaze_arrows(output, landmarks, gaze_result, width, height)
 
-        # Level 1+: 绘制角度文本
+        # Level 1+: 绘制角度文本和坐标信息
         if self.draw_text:
-            self._draw_gaze_text(output, gaze_result)
+            self._draw_gaze_text(output, gaze_result, landmarks)
 
         return output
 
@@ -251,48 +251,133 @@ class GazeDrawer:
             tipLength=0.3
         )
 
+    def _format_coord(self, x: float, y: float, z: float) -> str:
+        """格式化 3D 坐标为字符串"""
+        return f"({x:.4f}, {y:.4f}, {z:.4f})"
+
     def _draw_gaze_text(
         self,
         image: np.ndarray,
-        gaze_result: Dict[str, Any]
+        gaze_result: Dict[str, Any],
+        landmarks: List[Any] = None
     ):
-        """绘制视线角度文本"""
+        """绘制视线角度、眼睑角度和坐标信息文本"""
         avg_gaze = gaze_result["averaged"]
         yaw = avg_gaze["yaw"]
         pitch = avg_gaze["pitch"]
 
-        # 准备文本
-        text = f"Yaw: {yaw:+.1f}  Pitch: {pitch:+.1f}"
-
-        # 获取文本尺寸
+        # 字体设置
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.7
+        font_scale = 1.0
         thickness = 2
-        (text_width, text_height), baseline = cv2.getTextSize(
-            text, font, font_scale, thickness
-        )
-
-        # 绘制背景矩形
+        line_height = 36
         padding = 5
-        x, y = 10, 30
+        x, y = 10, 20
+
+        # 收集所有要显示的文本行
+        text_lines = []
+
+        # 视线角度（第一行）
+        text_lines.append(f"Yaw: {yaw:+.1f}  Pitch: {pitch:+.1f}")
+
+        # 眼睑角度（第二行）
+        if "eyelid" in gaze_result and gaze_result["eyelid"]:
+            left_eyelid = gaze_result["eyelid"].get("left", {})
+            right_eyelid = gaze_result["eyelid"].get("right", {})
+            left_upper = left_eyelid.get("upper")
+            right_upper = right_eyelid.get("upper")
+            left_lower = left_eyelid.get("lower")
+            right_lower = right_eyelid.get("lower")
+
+            if all(v is not None for v in [left_upper, right_upper, left_lower, right_lower]):
+                avg_upper = (left_upper + right_upper) / 2
+                avg_lower = (left_lower + right_lower) / 2
+                text_lines.append(f"Upper: {avg_upper:.1f}  Lower: {avg_lower:.1f}")
+
+        # 坐标信息（需要 landmarks）
+        if landmarks is not None:
+            text_lines.append("")  # 空行分隔
+
+            # 左眼坐标
+            text_lines.append("=== Left Eye ===")
+            left_iris = landmarks[self.indices.LEFT_IRIS_CENTER]
+            text_lines.append(f"Iris:   {self._format_coord(left_iris.x, left_iris.y, left_iris.z)}")
+
+            left_upper_pt = landmarks[self.indices.LEFT_EYE_TOP]
+            text_lines.append(f"Upper:  {self._format_coord(left_upper_pt.x, left_upper_pt.y, left_upper_pt.z)}")
+
+            left_lower_pt = landmarks[self.indices.LEFT_EYE_BOTTOM]
+            text_lines.append(f"Lower:  {self._format_coord(left_lower_pt.x, left_lower_pt.y, left_lower_pt.z)}")
+
+            left_outer_pt = landmarks[self.indices.LEFT_EYE_OUTER]
+            text_lines.append(f"Outer:  {self._format_coord(left_outer_pt.x, left_outer_pt.y, left_outer_pt.z)}")
+
+            left_inner_pt = landmarks[self.indices.LEFT_EYE_INNER]
+            text_lines.append(f"Inner:  {self._format_coord(left_inner_pt.x, left_inner_pt.y, left_inner_pt.z)}")
+
+            # 左眼球中心（从 gaze_result 获取）
+            if "eye_center_3d" in gaze_result and gaze_result["eye_center_3d"]:
+                left_center = gaze_result["eye_center_3d"].get("left", {})
+                if left_center:
+                    text_lines.append(f"Center: {self._format_coord(left_center['x'], left_center['y'], left_center['z'])}")
+
+            text_lines.append("")  # 空行分隔
+
+            # 右眼坐标
+            text_lines.append("=== Right Eye ===")
+            right_iris = landmarks[self.indices.RIGHT_IRIS_CENTER]
+            text_lines.append(f"Iris:   {self._format_coord(right_iris.x, right_iris.y, right_iris.z)}")
+
+            right_upper_pt = landmarks[self.indices.RIGHT_EYE_TOP]
+            text_lines.append(f"Upper:  {self._format_coord(right_upper_pt.x, right_upper_pt.y, right_upper_pt.z)}")
+
+            right_lower_pt = landmarks[self.indices.RIGHT_EYE_BOTTOM]
+            text_lines.append(f"Lower:  {self._format_coord(right_lower_pt.x, right_lower_pt.y, right_lower_pt.z)}")
+
+            right_outer_pt = landmarks[self.indices.RIGHT_EYE_OUTER]
+            text_lines.append(f"Outer:  {self._format_coord(right_outer_pt.x, right_outer_pt.y, right_outer_pt.z)}")
+
+            right_inner_pt = landmarks[self.indices.RIGHT_EYE_INNER]
+            text_lines.append(f"Inner:  {self._format_coord(right_inner_pt.x, right_inner_pt.y, right_inner_pt.z)}")
+
+            # 右眼球中心（从 gaze_result 获取）
+            if "eye_center_3d" in gaze_result and gaze_result["eye_center_3d"]:
+                right_center = gaze_result["eye_center_3d"].get("right", {})
+                if right_center:
+                    text_lines.append(f"Center: {self._format_coord(right_center['x'], right_center['y'], right_center['z'])}")
+
+        # 计算背景矩形尺寸
+        max_width = 0
+        for line in text_lines:
+            if line:  # 跳过空行
+                (w, _), _ = cv2.getTextSize(line, font, font_scale, thickness)
+                max_width = max(max_width, w)
+
+        total_height = len(text_lines) * line_height
+
+        # 绘制半透明背景矩形
         cv2.rectangle(
             image,
-            (x - padding, y - text_height - padding),
-            (x + text_width + padding, y + baseline + padding),
+            (x - padding, y - line_height + padding),
+            (x + max_width + padding, y + total_height - line_height + padding),
             self.COLOR_TEXT_BG,
             -1
         )
 
-        # 绘制文本
-        cv2.putText(
-            image,
-            text,
-            (x, y),
-            font,
-            font_scale,
-            self.COLOR_TEXT,
-            thickness
-        )
+        # 绘制所有文本行
+        current_y = y
+        for line in text_lines:
+            if line:  # 跳过空行只增加间距
+                cv2.putText(
+                    image,
+                    line,
+                    (x, current_y),
+                    font,
+                    font_scale,
+                    self.COLOR_TEXT,
+                    thickness
+                )
+            current_y += line_height
 
     def _draw_full_face_mesh(
         self,

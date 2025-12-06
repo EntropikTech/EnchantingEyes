@@ -85,7 +85,8 @@ class ImageProcessor:
             "gaze": None,
             "iris_3d": None,
             "left_eye": None,
-            "right_eye": None
+            "right_eye": None,
+            "eyelid": None
         }
 
         annotated_image = image.copy()
@@ -102,6 +103,7 @@ class ImageProcessor:
                 result["left_eye"] = gaze_result["left_eye"]
                 result["right_eye"] = gaze_result["right_eye"]
                 result["iris_3d"] = gaze_result["iris_3d"]
+                result["eyelid"] = gaze_result.get("eyelid")
 
                 # 绘制可视化
                 annotated_image = self.drawer.draw_gaze(

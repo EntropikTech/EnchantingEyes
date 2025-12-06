@@ -122,7 +122,8 @@ class VideoProcessor:
                     "timestamp_ms": round(timestamp_ms, 2),
                     "face_detected": False,
                     "gaze": None,
-                    "iris_3d": None
+                    "iris_3d": None,
+                    "eyelid": None
                 }
 
                 if results.multi_face_landmarks:
@@ -135,6 +136,7 @@ class VideoProcessor:
                         frame_data["face_detected"] = True
                         frame_data["gaze"] = gaze_result["averaged"]
                         frame_data["iris_3d"] = gaze_result["iris_3d"]
+                        frame_data["eyelid"] = gaze_result.get("eyelid")
                         detected_count += 1
 
                         # 绘制可视化
